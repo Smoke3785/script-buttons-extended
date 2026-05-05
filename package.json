@@ -1,64 +1,123 @@
 {
-  "name": "script-buttons",
-	"displayName": "Script Buttons",
-	"publisher": "JackWaterfall",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/jwaterfall/script-buttons.git"
-	},
-	"description": "",
-	"version": "1.1.1",
-	"engines": {
-		"vscode": "^1.63.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"keywords": [
-		"npm",
-		"node",
-		"script",
-		"scripts",
-		"button",
-		"buttons",
-		"shortcuts",
-		"actions",
-		"package.json",
-		"script-buttons.json"
-	],
-	"icon": "images/icon.png",
-	"activationEvents": [
-        "onStartupFinished"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "script-buttons.refreshScripts",
-				"title": "Refetch the scripts from your package.json file"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
-		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js",
-		"publish": "vsce publish"
-	},
-	"devDependencies": {
-		"@types/vscode": "^1.63.0",
-		"@types/glob": "^7.1.4",
-		"@types/mocha": "^9.0.0",
-		"@types/node": "14.x",
-		"@typescript-eslint/eslint-plugin": "^5.1.0",
-		"@typescript-eslint/parser": "^5.1.0",
-		"eslint": "^8.1.0",
-		"glob": "^7.1.7",
-		"mocha": "^9.1.3",
-		"typescript": "^4.4.4",
-		"@vscode/test-electron": "^1.6.2"
-	}
+  "name": "script-buttons-extended",
+  "displayName": "Script Buttons Extended",
+  "publisher": "owenrossikeen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Smoke3785/script-buttons-extended.git"
+  },
+  "description": "Maintained fork of Script Buttons. Adds configurable sources, whitelist/blacklist filtering, custom labelled buttons, and VSCode settings support.",
+  "version": "1.2.0",
+  "engines": {
+    "vscode": "^1.63.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "npm",
+    "node",
+    "script",
+    "scripts",
+    "button",
+    "buttons",
+    "shortcuts",
+    "actions",
+    "package.json",
+    "script-buttons.json"
+  ],
+  "icon": "images/icon.png",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "script-buttons.refreshScripts",
+        "title": "Refetch the scripts from your package.json file"
+      }
+    ],
+    "configuration": {
+      "title": "Script Buttons",
+      "properties": {
+        "scriptButtons.sources": {
+          "type": "string",
+          "enum": [
+            "package",
+            "config",
+            "both"
+          ],
+          "default": "both",
+          "markdownDescription": "Where script buttons are sourced from. `package` reads only from `package.json`, `config` reads only from `script-buttons.json` and the `scriptButtons.scripts` setting, `both` reads from all sources."
+        },
+        "scriptButtons.filter.mode": {
+          "type": "string",
+          "enum": [
+            "whitelist",
+            "blacklist"
+          ],
+          "default": "blacklist",
+          "markdownDescription": "How `#scriptButtons.filter.contents#` is applied to scripts loaded from `package.json`. `whitelist` shows only listed scripts; `blacklist` hides them."
+        },
+        "scriptButtons.filter.contents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Names of `package.json` scripts to include or exclude (per `#scriptButtons.filter.mode#`). Does not affect scripts defined in `#scriptButtons.scripts#` or `script-buttons.json`."
+        },
+        "scriptButtons.scripts": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Custom scripts to add as buttons. Each entry has a `label` (button text) and a `script` (shell command to run).",
+          "items": {
+            "type": "object",
+            "required": [
+              "label",
+              "script"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Button display text."
+              },
+              "script": {
+                "type": "string",
+                "description": "Shell command to run when the button is clicked."
+              }
+            }
+          }
+        },
+        "scriptButtons.showNpmInstall": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the special `NPM Install` button when a `package.json` is detected."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.63.0",
+    "@types/glob": "^7.1.4",
+    "@types/mocha": "^9.0.0",
+    "@types/node": "14.x",
+    "@typescript-eslint/eslint-plugin": "^5.1.0",
+    "@typescript-eslint/parser": "^5.1.0",
+    "eslint": "^8.1.0",
+    "glob": "^7.1.7",
+    "mocha": "^9.1.3",
+    "typescript": "^4.4.4",
+    "@vscode/test-electron": "^1.6.2"
+  }
 }
