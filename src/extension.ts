@@ -45,6 +45,13 @@ export function activate(context: vscode.ExtensionContext) {
     }
   }
 
+  function formatIcon(icon: string | undefined): string {
+    if (!icon) return '';
+    const trimmed = icon.trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('$(') ? trimmed : `$(${trimmed})`;
+  }
+
   function createStatusBarItem(text: string, tooltip?: string, command?: string, color?: string) {
     const item = vscode.window.createStatusBarItem(1, 0);
 
@@ -189,12 +196,19 @@ export function activate(context: vscode.ExtensionContext) {
     );
   }
 
-  function createButton(label: string, command: string | ScriptStep[], isNpm: boolean) {
+  function createButton(
+    label: string,
+    command: string | ScriptStep[],
+    isNpm: boolean,
+    icon?: string,
+  ) {
     const vscCommand = createVscCommand(command, label, isNpm);
     const color = isNpm ? 'white' : undefined;
     const tooltip = typeof command === 'string' ? command : `${command.length} steps`;
+    const iconPrefix = formatIcon(icon);
+    const text = iconPrefix ? `${iconPrefix}  ${label}` : label;
 
-    createStatusBarItem(label, tooltip, vscCommand, color);
+    createStatusBarItem(text, tooltip, vscCommand, color);
   }
 
   function createVscCommand(command: string | ScriptStep[], name: string, isNpm = false) {
@@ -275,7 +289,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         seenLabels.add(entry.label);
-        createButton(entry.label, entry.script, false);
+        createButton(entry.label, entry.script, false, entry.icon);
 
         buttonCount++;
       }

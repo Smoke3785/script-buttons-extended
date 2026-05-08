@@ -33,13 +33,13 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
 
 ### Available settings
 
-| Setting                         | Type                                  | Default       | Description                                                                                                                                                                          |
-| ------------------------------- | ------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `scriptButtons.sources`         | `"package"` \| `"config"` \| `"both"` | `"both"`      | Which sources to pull scripts from.                                                                                                                                                  |
-| `scriptButtons.filter.mode`     | `"whitelist"` \| `"blacklist"`        | `"blacklist"` | How the filter list is applied to `package.json` scripts.                                                                                                                            |
-| `scriptButtons.filter.contents` | `string[]`                            | `[]`          | Script names to include or exclude (per `mode`). Only affects `package.json` scripts.                                                                                                |
-| `scriptButtons.scripts`         | `{ label, script }[]`                 | `[]`          | Custom buttons. `label` is the button text; `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
-| `scriptButtons.showNpmInstall`  | `boolean`                             | `true`        | Show the special **NPM Install** button when a `package.json` is detected.                                                                                                           |
+| Setting                         | Type                                  | Default       | Description                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------- | ------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scriptButtons.sources`         | `"package"` \| `"config"` \| `"both"` | `"both"`      | Which sources to pull scripts from.                                                                                                                                                                                                                                                                                                                                                        |
+| `scriptButtons.filter.mode`     | `"whitelist"` \| `"blacklist"`        | `"blacklist"` | How the filter list is applied to `package.json` scripts.                                                                                                                                                                                                                                                                                                                                  |
+| `scriptButtons.filter.contents` | `string[]`                            | `[]`          | Script names to include or exclude (per `mode`). Only affects `package.json` scripts.                                                                                                                                                                                                                                                                                                      |
+| `scriptButtons.scripts`         | `{ label, icon?, script }[]`          | `[]`          | Custom buttons. `label` is the button text; optional `icon` is a [codicon](https://code.visualstudio.com/api/references/icons-in-labels) shown before the label (bare name like `"rocket"` or full syntax like `"$(rocket)"` / `"$(sync~spin)"`); `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
+| `scriptButtons.showNpmInstall`  | `boolean`                             | `true`        | Show the special **NPM Install** button when a `package.json` is detected.                                                                                                                                                                                                                                                                                                                 |
 
 ### Example: VSCode settings
 
@@ -52,8 +52,8 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
     "contents": ["prepublish", "postinstall"],
   },
   "scriptButtons.scripts": [
-    { "label": "Dev Server", "script": "npm run dev" },
-    { "label": "Reset DB", "script": "./scripts/reset-db.sh" },
+    { "label": "Dev Server", "icon": "rocket", "script": "npm run dev" },
+    { "label": "Reset DB", "icon": "$(database)", "script": "./scripts/reset-db.sh" },
   ],
   "scriptButtons.showNpmInstall": false,
 }
@@ -106,17 +106,30 @@ You can reference it from your file with a `$schema` key:
 
 ## Multi-step buttons
 
-A button's `script` can be an array of **steps** instead of a single shell command. Each step is either a `shell` command or a `vscode` command (anything you can run from the command palette), and steps can declare dependencies on other steps via `reliesOn`. Steps with no `reliesOn` run **concurrently**; a step waits until all of its dependencies have finished successfully.
+A button's `script` can be an array of **steps** instead of a single shell command. Each step is either a `shell` command or a `vscode` command (anything you can run from the command palette), and steps can declare ordering constraints on other steps. Steps with no constraints run **concurrently**.
+
+Three constraint flavors are available, matching different "what does ready mean?" questions:
+
+| Constraint     | A step waits until each named dependency…                        | Use it for                                                            |
+| -------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `reliesOn`     | …has **finished successfully** (exit code 0 / command resolved). | Pipelines where downstream needs the dep's output or success.         |
+| `executeAfter` | …has **started executing** (process spawned / command invoked).  | Long-running predecessors (e.g. a dev server) — don't wait for exit.  |
+| `reliesOnPort` | …has **opened a TCP port** that becomes reachable.               | Following a server once it is actually _listening_, not just spawned. |
+
+`reliesOn` and `executeAfter` accept a step id or an array of ids. `reliesOnPort` accepts an array of `{ id, port, host?, timeoutMs? }` entries. All three can be combined on the same step — every constraint must be satisfied before it runs.
 
 ### Step fields
 
-| Field      | Type                    | Required                         | Description                                                                                                   |
-| ---------- | ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `id`       | `string`                | only if referenced by `reliesOn` | Unique identifier within this script.                                                                         |
-| `type`     | `"shell"` \| `"vscode"` | yes                              | `shell` runs `command` in a task terminal; `vscode` calls `vscode.commands.executeCommand(command, ...args)`. |
-| `command`  | `string`                | yes                              | Shell command line, or a VSCode command id (e.g. `workbench.action.files.saveAll`).                           |
-| `args`     | `unknown[]`             | no                               | Arguments spread into `executeCommand`. Ignored for `shell` steps.                                            |
-| `reliesOn` | `string` \| `string[]`  | no                               | Step id(s) that must complete successfully before this step runs.                                             |
+| Field          | Type                                | Required                           | Description                                                                                                                                                                                                                |
+| -------------- | ----------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | `string`                            | only if referenced by another step | Unique identifier within this script.                                                                                                                                                                                      |
+| `type`         | `"shell"` \| `"vscode"`             | yes                                | `shell` runs `command` in a task terminal; `vscode` calls `vscode.commands.executeCommand(command, ...args)`.                                                                                                              |
+| `command`      | `string`                            | yes                                | Shell command line, or a VSCode command id (e.g. `workbench.action.files.saveAll`).                                                                                                                                        |
+| `args`         | `unknown[]`                         | no                                 | Arguments spread into `executeCommand`. Ignored for `shell` steps.                                                                                                                                                         |
+| `background`   | `boolean`                           | no (default `false`)               | If `true`, the shell terminal is allocated silently — not revealed or focused. Output is still available via the terminal dropdown. Ignored for `vscode` steps.                                                            |
+| `reliesOn`     | `string` \| `string[]`              | no                                 | Step id(s) that must finish successfully before this step runs.                                                                                                                                                            |
+| `executeAfter` | `string` \| `string[]`              | no                                 | Step id(s) that must have started executing before this step runs. Does not wait for the dep to finish — useful for long-running predecessors.                                                                             |
+| `reliesOnPort` | `{ id, port, host?, timeoutMs? }[]` | no                                 | Wait until each named dependency opens the given TCP `port` (default host `localhost`). If the dep finishes (or is skipped) before the port becomes reachable, this step is skipped. Optional `timeoutMs` bounds the wait. |
 
 ### Example: build → test, with a save-all in parallel
 
@@ -138,13 +151,42 @@ A button's `script` can be an array of **steps** instead of a single shell comma
 
 In this example `clean` and the `saveAll` vscode command kick off immediately and in parallel; `build` starts when `clean` finishes; `test` starts when `build` finishes.
 
+### Example: dev server → open browser when it's actually listening
+
+```jsonc
+{
+  "scriptButtons.scripts": [
+    {
+      "label": "Dev",
+      "icon": "rocket",
+      "script": [
+        { "id": "server", "type": "shell", "command": "npm run dev", "background": true },
+        {
+          "type": "vscode",
+          "command": "simpleBrowser.show",
+          "args": ["http://localhost:3000"],
+          "reliesOnPort": [{ "id": "server", "port": 3000 }],
+        },
+      ],
+    },
+  ],
+}
+```
+
+`reliesOn: "server"` would never resolve here — the dev server doesn't exit. `executeAfter: "server"` would fire as soon as the process spawns, before it's bound the port. `reliesOnPort` waits for the actual port to accept connections.
+
 ### Execution semantics
 
-- **Shell steps** run as VSCode tasks (`vscode.tasks.executeTask` with a `ShellExecution`), so each step gets its own task terminal and a real exit code. A non-zero exit is treated as a failure.
-- **VSCode steps** succeed if `executeCommand` resolves and fail if it throws.
-- **Failure cascades.** If a step fails, every step that transitively depends on it is **skipped**. Independent branches keep running.
-- **Output channel.** Orchestration logs (which step is running, success/failure/skip, and a final summary) are written to the **Script Buttons** output channel. If anything failed or was skipped, a warning toast offers a "Show Output" button.
-- **Validation at registration.** Cycles, unknown `reliesOn` ids, duplicate `id`s, and missing `type`/`command` are detected when the button is registered. Invalid entries are skipped (logged to the output channel) without affecting other buttons.
+- **Shell steps** run as VSCode tasks (`vscode.tasks.executeTask` with a `ShellExecution`), so each step gets its own task terminal and a real exit code. A non-zero exit is treated as a failure. The "started" signal for `executeAfter` fires when the task process actually spawns (`onDidStartTaskProcess`), not just when the task is queued.
+- **VSCode steps** succeed if `executeCommand` resolves and fail if it throws. Their "started" signal fires immediately before the command is invoked.
+- **Failure cascades.**
+  - `reliesOn`: if the dep failed or was skipped, this step is skipped.
+  - `executeAfter`: if the dep was _skipped_ (never started), this step is skipped. A failed-but-started dep does not block — it did execute.
+  - `reliesOnPort`: if the dep finishes (any state) before the port becomes reachable, or if it was skipped, this step is skipped. An optional per-entry `timeoutMs` also triggers a skip.
+    Independent branches keep running.
+- **Port probing.** TCP `connect` to `host:port` (default `localhost`), polled every 250 ms. This confirms the port is accepting connections — it does not validate HTTP readiness or any application-level handshake.
+- **Output channel.** Orchestration logs (which step is running, port waits, success/failure/skip, and a final summary) are written to the **Script Buttons** output channel. If anything failed or was skipped, a warning toast offers a "Show Output" button.
+- **Validation at registration.** Cycles (across all of `reliesOn`, `executeAfter`, and `reliesOnPort`), unknown ids, self-references, duplicate `id`s, out-of-range ports, and missing `type`/`command` are detected when the button is registered. Invalid entries are skipped (logged to the output channel) without affecting other buttons.
 
 The legacy single-string form is unchanged:
 
@@ -159,6 +201,10 @@ It still runs in a regular terminal with the original "dispose-and-recreate" beh
 There are currently no known issues.
 
 ## Release Notes
+
+### 1.6.0
+
+- Custom buttons now support an optional **`icon`** field (in `scriptButtons.scripts` and `script-buttons.json`). Accepts a bare [codicon](https://code.visualstudio.com/api/references/icons-in-labels) name like `"rocket"` or full syntax like `"$(rocket)"` / `"$(sync~spin)"`. The icon renders before the label; package.json scripts and built-in buttons are unchanged.
 
 ### 1.3.0
 

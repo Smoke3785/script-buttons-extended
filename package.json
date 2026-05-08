@@ -7,7 +7,7 @@
     "url": "https://github.com/Smoke3785/script-buttons-extended.git"
   },
   "description": "Maintained fork of Script Buttons. Adds configurable sources, whitelist/blacklist filtering, custom labelled buttons, and VSCode settings support.",
-  "version": "1.5.0",
+  "version": "1.8.0",
   "engines": {
     "vscode": "^1.63.0"
   },
@@ -80,7 +80,7 @@
         "scriptButtons.scripts": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Custom scripts to add as buttons. Each entry has a `label` (button text) and a `script`. `script` is either a shell command string (legacy) or an array of step objects forming a DAG: each step has a `type` (`shell` or `vscode`), a `command`, optional `args` (for `vscode` commands), an optional `id`, and an optional `reliesOn` (id or array of ids) that must complete successfully before the step runs. Steps with no `reliesOn` run concurrently.",
+          "markdownDescription": "Custom scripts to add as buttons. Each entry has a `label` (button text), an optional `icon` (codicon name like `rocket` or full syntax like `$(rocket)` / `$(sync~spin)` — see [icons in labels](https://code.visualstudio.com/api/references/icons-in-labels)), and a `script`. `script` is either a shell command string (legacy) or an array of step objects forming a DAG: each step has a `type` (`shell` or `vscode`), a `command`, optional `args` (for `vscode` commands), an optional `id`, and ordering constraints — `reliesOn` (id or array of ids) waits for dependencies to finish successfully, `executeAfter` waits only for them to start, and `reliesOnPort` waits until a dependency's TCP port is reachable (ideal for chaining steps after a dev server is actually listening). Steps without ordering constraints run concurrently.",
           "items": {
             "type": "object",
             "required": [
@@ -91,6 +91,10 @@
               "label": {
                 "type": "string",
                 "description": "Button display text."
+              },
+              "icon": {
+                "type": "string",
+                "description": "Optional codicon shown before the label. Either a bare name like \"rocket\" or full syntax like \"$(rocket)\" / \"$(sync~spin)\"."
               },
               "script": {
                 "description": "Either a shell command string (legacy) or an array of step objects forming a DAG.",
@@ -109,7 +113,7 @@
                       "properties": {
                         "id": {
                           "type": "string",
-                          "description": "Unique id within this script. Required if other steps reference it via reliesOn."
+                          "description": "Unique id within this script. Required if other steps reference it via reliesOn or executeAfter."
                         },
                         "type": {
                           "type": "string",
@@ -127,8 +131,13 @@
                           "type": "array",
                           "description": "Args spread into vscode.commands.executeCommand. Ignored when type is `shell`."
                         },
+                        "background": {
+                          "type": "boolean",
+                          "description": "If true, the shell terminal is allocated silently — not revealed or focused. Output is still available via the terminal dropdown. Ignored for `vscode` steps. Defaults to false.",
+                          "default": false
+                        },
                         "reliesOn": {
-                          "description": "Step id(s) that must finish successfully before this step runs.",
+                          "description": "Step id(s) that must finish successfully before this step runs. Use this when downstream work depends on the dependency's output or success.",
                           "oneOf": [
                             {
                               "type": "string"
@@ -140,6 +149,53 @@
                               }
                             }
                           ]
+                        },
+                        "executeAfter": {
+                          "description": "Step id(s) that must have started executing before this step runs. Unlike reliesOn, this does not wait for the dependency to finish — useful for chaining a follow-up step after a long-running task (e.g. a dev server) has begun.",
+                          "oneOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ]
+                        },
+                        "reliesOnPort": {
+                          "description": "Wait until a port opened by a dependency step becomes reachable before this step runs. Each entry pairs a step `id` with the `port` it is expected to open. Tighter than executeAfter — waits for the server to actually be listening, not just for the process to spawn. If the dependency finishes (or is skipped) without the port ever being detected, this step is skipped.",
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "port"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Step id of the dependency expected to open the port."
+                              },
+                              "port": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 65535,
+                                "description": "TCP port to probe."
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "Host to probe. Defaults to localhost.",
+                                "default": "localhost"
+                              },
+                              "timeoutMs": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "Optional overall wait timeout in milliseconds. If the port is not reachable within this window, the step is skipped. Omit for no timeout (the wait will still abort if the dependency itself finishes)."
+                              }
+                            }
+                          }
                         }
                       }
                     }
