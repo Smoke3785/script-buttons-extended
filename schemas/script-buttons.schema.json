@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Smoke3785/script-buttons-extended/main/schemas/script-buttons.schema.json",
+  "title": "Script Buttons Extended configuration",
+  "description": "Configuration for the Script Buttons Extended VSCode extension. Place this file at the workspace root or inside .vscode/.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI of the JSON Schema for this file."
+    },
+    "sources": {
+      "type": "string",
+      "enum": ["package", "config", "both"],
+      "description": "Where script buttons are sourced from. `package` reads only from package.json, `config` reads only from script-buttons.json and the scriptButtons.scripts setting, `both` reads from all sources."
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["whitelist", "blacklist"],
+          "description": "How `contents` is applied to package.json scripts."
+        },
+        "contents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Script names to include or exclude (per `mode`). Only affects package.json scripts."
+        }
+      }
+    },
+    "scripts": {
+      "type": "array",
+      "description": "Custom buttons to render alongside package.json scripts.",
+      "items": {
+        "type": "object",
+        "required": ["label", "script"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Button display text."
+          },
+          "script": {
+            "description": "Either a shell command string (legacy) or an array of step objects forming a DAG.",
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["type", "command"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Unique id within this script. Required if other steps reference it via reliesOn."
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["shell", "vscode"],
+                      "description": "`shell` runs `command` in a task terminal. `vscode` invokes vscode.commands.executeCommand(command, ...args)."
+                    },
+                    "command": {
+                      "type": "string",
+                      "description": "Shell command line, or VSCode command id when type is `vscode`."
+                    },
+                    "args": {
+                      "type": "array",
+                      "description": "Args spread into vscode.commands.executeCommand. Ignored when type is `shell`."
+                    },
+                    "reliesOn": {
+                      "description": "Step id(s) that must finish successfully before this step runs.",
+                      "oneOf": [
+                        { "type": "string" },
+                        {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "showNpmInstall": {
+      "type": "boolean",
+      "description": "Show the special NPM Install button when a package.json is detected."
+    }
+  },
+  "additionalProperties": {
+    "type": "string",
+    "description": "Legacy flat-dict form: any extra key whose value is a string becomes a button (label = key, script = value)."
+  }
+}

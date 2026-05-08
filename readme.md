@@ -4,7 +4,7 @@
 
 Make running custom scripts easier!
 
-> **Maintained fork.** This is a community-maintained fork of [jwaterfall/script-buttons](https://github.com/jwaterfall/script-buttons), which is no longer being updated. New features and fixes ship here.
+> **Maintained fork.** This is a maintained fork of [jwaterfall/script-buttons](https://github.com/jwaterfall/script-buttons), which as far as I can tell is no longer being updated. New features and fixes ship here.
 
 ## Features
 
@@ -33,13 +33,14 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
 
 ### Available settings
 
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `scriptButtons.sources` | `"package"` \| `"config"` \| `"both"` | `"both"` | Which sources to pull scripts from. |
-| `scriptButtons.filter.mode` | `"whitelist"` \| `"blacklist"` | `"blacklist"` | How the filter list is applied to `package.json` scripts. |
-| `scriptButtons.filter.contents` | `string[]` | `[]` | Script names to include or exclude (per `mode`). Only affects `package.json` scripts. |
-| `scriptButtons.scripts` | `{ label, script }[]` | `[]` | Custom buttons. `label` is the button text; `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
-| `scriptButtons.showNpmInstall` | `boolean` | `true` | Show the special **NPM Install** button when a `package.json` is detected. |
+| Setting                         | Type                                  | Default       | Description                                                                                                                                                                          |
+| ------------------------------- | ------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scriptButtons.sources`         | `"package"` \| `"config"` \| `"both"` | `"both"`      | Which sources to pull scripts from.                                                                                                                                                  |
+| `scriptButtons.filter.mode`     | `"whitelist"` \| `"blacklist"`        | `"blacklist"` | How the filter list is applied to `package.json` scripts.                                                                                                                            |
+| `scriptButtons.filter.contents` | `string[]`                            | `[]`          | Script names to include or exclude (per `mode`). Only affects `package.json` scripts.                                                                                                |
+| `scriptButtons.scripts`         | `{ label, script }[]`                 | `[]`          | Custom buttons. `label` is the button text; `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
+| `scriptButtons.showNpmInstall`  | `boolean`                             | `true`        | Show the special **NPM Install** button when a `package.json` is detected.                                                                                                           |
+| `scriptButtons.autoInsertSchema`| `boolean`                             | `true`        | Auto-insert a `$schema` field into `script-buttons.json` files that don't have one.                                                                                                  |
 
 ### Example: VSCode settings
 
@@ -49,13 +50,13 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
   "scriptButtons.sources": "both",
   "scriptButtons.filter": {
     "mode": "blacklist",
-    "contents": ["prepublish", "postinstall"]
+    "contents": ["prepublish", "postinstall"],
   },
   "scriptButtons.scripts": [
     { "label": "Dev Server", "script": "npm run dev" },
-    { "label": "Reset DB", "script": "./scripts/reset-db.sh" }
+    { "label": "Reset DB", "script": "./scripts/reset-db.sh" },
   ],
-  "scriptButtons.showNpmInstall": false
+  "scriptButtons.showNpmInstall": false,
 }
 ```
 
@@ -67,8 +68,8 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
   "sources": "config",
   "scripts": [
     { "label": "Dev Server", "script": "npm run dev" },
-    { "label": "Lint", "script": "npm run lint" }
-  ]
+    { "label": "Lint", "script": "npm run lint" },
+  ],
 }
 ```
 
@@ -79,11 +80,28 @@ The original flat-dict shape for `script-buttons.json` is still supported — no
 ```jsonc
 {
   "Dev Server": "npm run dev",
-  "Lint": "npm run lint"
+  "Lint": "npm run lint",
 }
 ```
 
 The shape is auto-detected: if any of `sources`, `filter`, `scripts`, or `showNpmInstall` keys are present, the file is read as a config object; otherwise it is treated as a legacy `name → command` dict.
+
+## JSON Schema
+
+A JSON Schema describing the `script-buttons.json` file shape is published at:
+
+```
+https://raw.githubusercontent.com/Smoke3785/script-buttons-extended/main/schemas/script-buttons.schema.json
+```
+
+When the extension loads a `script-buttons.json` that lacks a `$schema` field, it auto-inserts one pointing at this URL (preserving your existing formatting) so editors that respect `$schema` get autocomplete and validation. Disable this behavior by setting `scriptButtons.autoInsertSchema` to `false`.
+
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/Smoke3785/script-buttons-extended/main/schemas/script-buttons.schema.json",
+  "scripts": [{ "label": "Dev Server", "script": "npm run dev" }],
+}
+```
 
 ## Multi-step buttons
 
@@ -91,13 +109,13 @@ A button's `script` can be an array of **steps** instead of a single shell comma
 
 ### Step fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `string` | only if referenced by `reliesOn` | Unique identifier within this script. |
-| `type` | `"shell"` \| `"vscode"` | yes | `shell` runs `command` in a task terminal; `vscode` calls `vscode.commands.executeCommand(command, ...args)`. |
-| `command` | `string` | yes | Shell command line, or a VSCode command id (e.g. `workbench.action.files.saveAll`). |
-| `args` | `unknown[]` | no | Arguments spread into `executeCommand`. Ignored for `shell` steps. |
-| `reliesOn` | `string` \| `string[]` | no | Step id(s) that must complete successfully before this step runs. |
+| Field      | Type                    | Required                         | Description                                                                                                   |
+| ---------- | ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `id`       | `string`                | only if referenced by `reliesOn` | Unique identifier within this script.                                                                         |
+| `type`     | `"shell"` \| `"vscode"` | yes                              | `shell` runs `command` in a task terminal; `vscode` calls `vscode.commands.executeCommand(command, ...args)`. |
+| `command`  | `string`                | yes                              | Shell command line, or a VSCode command id (e.g. `workbench.action.files.saveAll`).                           |
+| `args`     | `unknown[]`             | no                               | Arguments spread into `executeCommand`. Ignored for `shell` steps.                                            |
+| `reliesOn` | `string` \| `string[]`  | no                               | Step id(s) that must complete successfully before this step runs.                                             |
 
 ### Example: build → test, with a save-all in parallel
 
@@ -107,13 +125,13 @@ A button's `script` can be an array of **steps** instead of a single shell comma
     {
       "label": "Build & Test",
       "script": [
-        { "id": "clean", "type": "shell",  "command": "rm -rf dist" },
-        { "id": "build", "type": "shell",  "command": "npm run build", "reliesOn": "clean" },
-        { "id": "test",  "type": "shell",  "command": "npm test",       "reliesOn": ["build"] },
-        {                "type": "vscode", "command": "workbench.action.files.saveAll" }
-      ]
-    }
-  ]
+        { "id": "clean", "type": "shell", "command": "rm -rf dist" },
+        { "id": "build", "type": "shell", "command": "npm run build", "reliesOn": "clean" },
+        { "id": "test", "type": "shell", "command": "npm test", "reliesOn": ["build"] },
+        { "type": "vscode", "command": "workbench.action.files.saveAll" },
+      ],
+    },
+  ],
 }
 ```
 
@@ -146,6 +164,7 @@ There are currently no known issues.
 - Buttons can now run **multiple steps** with dependencies. The `script` field on a custom button accepts an array of `{ id?, type, command, args?, reliesOn? }` steps. `type: "shell"` runs a shell command as a VSCode task; `type: "vscode"` calls `vscode.commands.executeCommand`. Steps with no `reliesOn` run concurrently; failures skip transitive dependents.
 - New **Script Buttons** output channel logs orchestration events and shows a final summary per click.
 - Added validation at registration time: cycles, unknown `reliesOn` ids, duplicate `id`s, and missing fields cause the button to be skipped (logged) instead of crashing init.
+- Published a JSON Schema for `script-buttons.json` and added `scriptButtons.autoInsertSchema` (default `true`) which auto-inserts a `$schema` reference into existing files.
 - Legacy single-string scripts are unchanged.
 
 ### 1.2.0
