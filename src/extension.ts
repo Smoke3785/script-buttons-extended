@@ -1,26 +1,37 @@
+// Dependencies
 import { promises as fsPromises } from 'fs';
 import { workspace } from 'vscode';
 import vscode from 'vscode';
 
+// Internals
+import { runSteps, validateSteps } from './orchestrator';
+
+// Types
 import type {
   ScriptButtonsConfig,
   ScriptButtonsFilter,
   ScriptSource,
   ScriptEntry,
+  ScriptStep,
   PackageJson,
   Disposable,
   Scripts,
 } from './types';
 
-const { readFile } = fsPromises;
+// Constants
+import { CONFIG_NAMESPACE } from './constants';
 
-const CONFIG_NAMESPACE = 'scriptButtons';
+const { readFile } = fsPromises;
 
 export function activate(context: vscode.ExtensionContext) {
   const disposables: Disposable[] = [];
 
   const terminals: { [name: string]: vscode.Terminal } = {};
+
+  const output = vscode.window.createOutputChannel('Script Buttons');
   const cwd = getWorkspaceFolderPath();
+
+  context.subscriptions.push(output);
 
   function addDisposable(disposable: Disposable) {
     context.subscriptions.push(disposable);
@@ -75,6 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
         return normalizeFileShape(raw);
       } catch {}
     }
+
     return null;
   }
 
@@ -87,7 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
       return obj as ScriptButtonsConfig;
     }
 
-    // Legacy flat dict: { name: command, ... } — wrap as scripts list
+    // Legacy flat dict: { name: command, ... } - wrap as scripts list
     const scripts: ScriptEntry[] = Object.entries(obj)
       .filter(([, v]) => {
         return typeof v === 'string';
@@ -175,34 +187,40 @@ export function activate(context: vscode.ExtensionContext) {
     );
   }
 
-  function createButton(label: string, command: string, isNpm: boolean) {
+  function createButton(label: string, command: string | ScriptStep[], isNpm: boolean) {
     const vscCommand = createVscCommand(command, label, isNpm);
     const color = isNpm ? 'white' : undefined;
+    const tooltip = typeof command === 'string' ? command : `${command.length} steps`;
 
-    createStatusBarItem(label, command, vscCommand, color);
+    createStatusBarItem(label, tooltip, vscCommand, color);
   }
 
-  function createVscCommand(command: string, name: string, isNpm = false) {
+  function createVscCommand(command: string | ScriptStep[], name: string, isNpm = false) {
     const prefix = isNpm ? 'npm-' : 'custom-';
     const vscCommand = `script-buttons.${prefix}${name.replace(/\s+/g, '_')}`;
 
     const commandDisposable = vscode.commands.registerCommand(vscCommand, async () => {
-      let terminal = terminals[vscCommand];
+      if (typeof command === 'string') {
+        let terminal = terminals[vscCommand];
 
-      if (terminal) {
-        delete terminals[vscCommand];
-        terminal.dispose();
+        if (terminal) {
+          delete terminals[vscCommand];
+          terminal.dispose();
+        }
+
+        terminal = vscode.window.createTerminal({
+          name,
+          cwd,
+        });
+
+        terminals[vscCommand] = terminal;
+
+        terminal.show(true);
+        terminal.sendText(command);
+        return;
       }
 
-      terminal = vscode.window.createTerminal({
-        name,
-        cwd,
-      });
-
-      terminals[vscCommand] = terminal;
-
-      terminal.show(true);
-      terminal.sendText(command);
+      await runSteps(name, command, { cwd, output });
     });
 
     addDisposable(commandDisposable);
@@ -242,6 +260,17 @@ export function activate(context: vscode.ExtensionContext) {
       for (const entry of config.scripts) {
         if (!entry?.label || !entry?.script) continue;
         if (seenLabels.has(entry.label)) continue;
+
+        const isArrayForm = Array.isArray(entry.script);
+        if (isArrayForm) {
+          const validation = validateSteps(entry.script as ScriptStep[]);
+          if (!validation.ok) {
+            output.appendLine(`[${entry.label}] skipped: ${validation.reason}`);
+            continue;
+          }
+        } else if (typeof entry.script !== 'string' || entry.script.length === 0) {
+          continue;
+        }
 
         seenLabels.add(entry.label);
         createButton(entry.label, entry.script, false);

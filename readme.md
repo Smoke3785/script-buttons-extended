@@ -38,7 +38,7 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
 | `scriptButtons.sources` | `"package"` \| `"config"` \| `"both"` | `"both"` | Which sources to pull scripts from. |
 | `scriptButtons.filter.mode` | `"whitelist"` \| `"blacklist"` | `"blacklist"` | How the filter list is applied to `package.json` scripts. |
 | `scriptButtons.filter.contents` | `string[]` | `[]` | Script names to include or exclude (per `mode`). Only affects `package.json` scripts. |
-| `scriptButtons.scripts` | `{ label, script }[]` | `[]` | Custom buttons. `label` is the button text; `script` is the shell command. |
+| `scriptButtons.scripts` | `{ label, script }[]` | `[]` | Custom buttons. `label` is the button text; `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
 | `scriptButtons.showNpmInstall` | `boolean` | `true` | Show the special **NPM Install** button when a `package.json` is detected. |
 
 ### Example: VSCode settings
@@ -85,11 +85,68 @@ The original flat-dict shape for `script-buttons.json` is still supported — no
 
 The shape is auto-detected: if any of `sources`, `filter`, `scripts`, or `showNpmInstall` keys are present, the file is read as a config object; otherwise it is treated as a legacy `name → command` dict.
 
+## Multi-step buttons
+
+A button's `script` can be an array of **steps** instead of a single shell command. Each step is either a `shell` command or a `vscode` command (anything you can run from the command palette), and steps can declare dependencies on other steps via `reliesOn`. Steps with no `reliesOn` run **concurrently**; a step waits until all of its dependencies have finished successfully.
+
+### Step fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | only if referenced by `reliesOn` | Unique identifier within this script. |
+| `type` | `"shell"` \| `"vscode"` | yes | `shell` runs `command` in a task terminal; `vscode` calls `vscode.commands.executeCommand(command, ...args)`. |
+| `command` | `string` | yes | Shell command line, or a VSCode command id (e.g. `workbench.action.files.saveAll`). |
+| `args` | `unknown[]` | no | Arguments spread into `executeCommand`. Ignored for `shell` steps. |
+| `reliesOn` | `string` \| `string[]` | no | Step id(s) that must complete successfully before this step runs. |
+
+### Example: build → test, with a save-all in parallel
+
+```jsonc
+{
+  "scriptButtons.scripts": [
+    {
+      "label": "Build & Test",
+      "script": [
+        { "id": "clean", "type": "shell",  "command": "rm -rf dist" },
+        { "id": "build", "type": "shell",  "command": "npm run build", "reliesOn": "clean" },
+        { "id": "test",  "type": "shell",  "command": "npm test",       "reliesOn": ["build"] },
+        {                "type": "vscode", "command": "workbench.action.files.saveAll" }
+      ]
+    }
+  ]
+}
+```
+
+In this example `clean` and the `saveAll` vscode command kick off immediately and in parallel; `build` starts when `clean` finishes; `test` starts when `build` finishes.
+
+### Execution semantics
+
+- **Shell steps** run as VSCode tasks (`vscode.tasks.executeTask` with a `ShellExecution`), so each step gets its own task terminal and a real exit code. A non-zero exit is treated as a failure.
+- **VSCode steps** succeed if `executeCommand` resolves and fail if it throws.
+- **Failure cascades.** If a step fails, every step that transitively depends on it is **skipped**. Independent branches keep running.
+- **Output channel.** Orchestration logs (which step is running, success/failure/skip, and a final summary) are written to the **Script Buttons** output channel. If anything failed or was skipped, a warning toast offers a "Show Output" button.
+- **Validation at registration.** Cycles, unknown `reliesOn` ids, duplicate `id`s, and missing `type`/`command` are detected when the button is registered. Invalid entries are skipped (logged to the output channel) without affecting other buttons.
+
+The legacy single-string form is unchanged:
+
+```jsonc
+{ "label": "Dev", "script": "npm run dev" }
+```
+
+It still runs in a regular terminal with the original "dispose-and-recreate" behavior on repeated clicks.
+
 ## Known Issues
 
 There are currently no known issues.
 
 ## Release Notes
+
+### 1.3.0
+
+- Buttons can now run **multiple steps** with dependencies. The `script` field on a custom button accepts an array of `{ id?, type, command, args?, reliesOn? }` steps. `type: "shell"` runs a shell command as a VSCode task; `type: "vscode"` calls `vscode.commands.executeCommand`. Steps with no `reliesOn` run concurrently; failures skip transitive dependents.
+- New **Script Buttons** output channel logs orchestration events and shows a final summary per click.
+- Added validation at registration time: cycles, unknown `reliesOn` ids, duplicate `id`s, and missing fields cause the button to be skipped (logged) instead of crashing init.
+- Legacy single-string scripts are unchanged.
 
 ### 1.2.0
 

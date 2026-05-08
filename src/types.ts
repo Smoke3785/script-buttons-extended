@@ -10,9 +10,19 @@ export interface PackageJson {
   scripts: Scripts;
 }
 
+export type ScriptStepType = 'shell' | 'vscode';
+
+export interface ScriptStep {
+  id?: string;
+  type: ScriptStepType;
+  command: string;
+  args?: unknown[];
+  reliesOn?: string | string[];
+}
+
 export interface ScriptEntry {
   label: string;
-  script: string;
+  script: string | ScriptStep[];
 }
 
 export interface ScriptButtonsFilter {
