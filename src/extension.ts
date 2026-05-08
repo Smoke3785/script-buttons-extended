@@ -19,7 +19,7 @@ import type {
 } from './types';
 
 // Constants
-import { CONFIG_NAMESPACE, SCHEMA_URL } from './constants';
+import { CONFIG_NAMESPACE } from './constants';
 
 const { readFile } = fsPromises;
 
@@ -77,17 +77,14 @@ export function activate(context: vscode.ExtensionContext) {
     return await getJsonFile<PackageJson>(`${cwd}/package.json`);
   }
 
-  async function getScriptButtonsFile(): Promise<{
-    config: ScriptButtonsConfig;
-    path: string;
-  } | null> {
+  async function getScriptButtonsFile(): Promise<ScriptButtonsConfig | null> {
     if (!cwd) return null;
     const candidates = [`${cwd}/script-buttons.json`, `${cwd}/.vscode/script-buttons.json`];
 
     for (const path of candidates) {
       try {
         const raw = await getJsonFile<unknown>(path);
-        return { config: normalizeFileShape(raw), path };
+        return normalizeFileShape(raw);
       } catch {}
     }
 
@@ -147,10 +144,7 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   async function loadConfig(): Promise<Required<ScriptButtonsConfig>> {
-    const fileResult = await getScriptButtonsFile();
-    const file = fileResult?.config ?? {};
-    if (fileResult) await maybeInjectSchema(fileResult.path);
-
+    const file = (await getScriptButtonsFile()) ?? {};
     const settings = readSettingsConfig();
 
     const merged = mergeConfigs(settings, file);
@@ -161,66 +155,6 @@ export function activate(context: vscode.ExtensionContext) {
       sources: merged.sources ?? 'both',
       scripts: merged.scripts ?? [],
     };
-  }
-
-  function injectSchemaInRawJson(raw: string, schemaUrl: string): string | null {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null;
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    if ('$schema' in (parsed as Record<string, unknown>)) return null;
-
-    const openMatch = raw.match(/^[\s﻿]*\{/);
-    if (!openMatch) return null;
-    const openEnd = openMatch[0].length;
-    const after = raw.slice(openEnd);
-
-    const newline = raw.includes('\r\n') ? '\r\n' : '\n';
-    const indentMatch = after.match(/[\r\n]+([ \t]+)/);
-    const indent = indentMatch ? indentMatch[1] : '  ';
-
-    const schemaLine = `"$schema": ${JSON.stringify(schemaUrl)}`;
-
-    const emptyMatch = after.match(/^\s*\}/);
-    if (emptyMatch) {
-      return (
-        raw.slice(0, openEnd) +
-        newline +
-        indent +
-        schemaLine +
-        newline +
-        '}' +
-        after.slice(emptyMatch[0].length)
-      );
-    }
-
-    return raw.slice(0, openEnd) + newline + indent + schemaLine + ',' + after;
-  }
-
-  async function maybeInjectSchema(filePath: string): Promise<void> {
-    const cfg = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-    if (cfg.get<boolean>('autoInsertSchema') === false) return;
-
-    let raw: string;
-    try {
-      raw = (await readFile(filePath)).toString();
-    } catch {
-      return;
-    }
-
-    const updated = injectSchemaInRawJson(raw, SCHEMA_URL);
-    if (updated === null || updated === raw) return;
-
-    try {
-      await fsPromises.writeFile(filePath, updated, 'utf8');
-      output.appendLine(`Inserted $schema into ${filePath}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      output.appendLine(`Failed to insert $schema into ${filePath}: ${msg}`);
-    }
   }
 
   function applyFilter(scripts: Scripts, filter?: ScriptButtonsFilter): Scripts {

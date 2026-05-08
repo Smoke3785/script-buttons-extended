@@ -153,11 +153,6 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the special `NPM Install` button when a `package.json` is detected."
-        },
-        "scriptButtons.autoInsertSchema": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Automatically add a `$schema` field pointing to the published schema if your `script-buttons.json` file doesn't have one. Enables IntelliSense and validation in editors that respect `$schema`."
         }
       }
     }

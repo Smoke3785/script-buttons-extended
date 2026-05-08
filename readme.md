@@ -40,7 +40,6 @@ When both are present, the project file wins per-field. The `scripts` arrays fro
 | `scriptButtons.filter.contents` | `string[]`                            | `[]`          | Script names to include or exclude (per `mode`). Only affects `package.json` scripts.                                                                                                |
 | `scriptButtons.scripts`         | `{ label, script }[]`                 | `[]`          | Custom buttons. `label` is the button text; `script` is either a shell command string **or** an array of step objects forming a DAG (see [Multi-step buttons](#multi-step-buttons)). |
 | `scriptButtons.showNpmInstall`  | `boolean`                             | `true`        | Show the special **NPM Install** button when a `package.json` is detected.                                                                                                           |
-| `scriptButtons.autoInsertSchema`| `boolean`                             | `true`        | Auto-insert a `$schema` field into `script-buttons.json` files that don't have one.                                                                                                  |
 
 ### Example: VSCode settings
 
@@ -88,13 +87,15 @@ The shape is auto-detected: if any of `sources`, `filter`, `scripts`, or `showNp
 
 ## JSON Schema
 
-A JSON Schema describing the `script-buttons.json` file shape is published at:
+The extension ships a JSON Schema for `script-buttons.json` and registers it via `contributes.jsonValidation`, so VSCode applies autocomplete and validation to any `script-buttons.json` (workspace root or `.vscode/`) automatically — no `$schema` field required.
+
+If you want validation in editors other than VSCode, the schema is also published at:
 
 ```
 https://raw.githubusercontent.com/Smoke3785/script-buttons-extended/main/schemas/script-buttons.schema.json
 ```
 
-When the extension loads a `script-buttons.json` that lacks a `$schema` field, it auto-inserts one pointing at this URL (preserving your existing formatting) so editors that respect `$schema` get autocomplete and validation. Disable this behavior by setting `scriptButtons.autoInsertSchema` to `false`.
+You can reference it from your file with a `$schema` key:
 
 ```jsonc
 {
@@ -164,7 +165,7 @@ There are currently no known issues.
 - Buttons can now run **multiple steps** with dependencies. The `script` field on a custom button accepts an array of `{ id?, type, command, args?, reliesOn? }` steps. `type: "shell"` runs a shell command as a VSCode task; `type: "vscode"` calls `vscode.commands.executeCommand`. Steps with no `reliesOn` run concurrently; failures skip transitive dependents.
 - New **Script Buttons** output channel logs orchestration events and shows a final summary per click.
 - Added validation at registration time: cycles, unknown `reliesOn` ids, duplicate `id`s, and missing fields cause the button to be skipped (logged) instead of crashing init.
-- Published a JSON Schema for `script-buttons.json` and added `scriptButtons.autoInsertSchema` (default `true`) which auto-inserts a `$schema` reference into existing files.
+- Published a JSON Schema for `script-buttons.json` and registered it via `contributes.jsonValidation`, so editors get autocomplete and validation automatically.
 - Legacy single-string scripts are unchanged.
 
 ### 1.2.0
