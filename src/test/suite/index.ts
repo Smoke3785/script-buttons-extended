@@ -1,12 +1,12 @@
-import path from 'path';
 import Mocha from 'mocha';
+import path from 'path';
 import glob from 'glob';
 
 export function run(): Promise<void> {
   // Create the mocha test
   const mocha = new Mocha({
-    ui: 'tdd',
     color: true,
+    ui: 'tdd',
   });
 
   const testsRoot = path.resolve(__dirname, '..');

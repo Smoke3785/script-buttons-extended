@@ -13,26 +13,26 @@ export interface PackageJson {
 export type ScriptStepType = 'shell' | 'vscode';
 
 export interface PortDependency {
-  id: string;
-  port: number;
-  host?: string;
   timeoutMs?: number;
+  host?: string;
+  port: number;
+  id: string;
 }
 
 export interface ScriptStep {
-  id?: string;
-  type: ScriptStepType;
-  command: string;
-  args?: unknown[];
-  reliesOn?: string | string[];
   executeAfter?: string | string[];
   reliesOnPort?: PortDependency[];
+  reliesOn?: string | string[];
   background?: boolean;
+  type: ScriptStepType;
+  args?: unknown[];
+  command: string;
+  id?: string;
 }
 
 export interface ScriptEntry {
-  label: string;
   script: string | ScriptStep[];
+  label: string;
   icon?: string;
 }
 
@@ -44,8 +44,8 @@ export interface ScriptButtonsFilter {
 export type ScriptSource = 'package' | 'config' | 'both';
 
 export interface ScriptButtonsConfig {
-  sources?: ScriptSource;
   filter?: ScriptButtonsFilter;
-  scripts?: ScriptEntry[];
   showNpmInstall?: boolean;
+  scripts?: ScriptEntry[];
+  sources?: ScriptSource;
 }

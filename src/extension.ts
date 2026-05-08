@@ -12,9 +12,9 @@ import type {
   ScriptButtonsFilter,
   ScriptSource,
   ScriptEntry,
-  ScriptStep,
   PackageJson,
   Disposable,
+  ScriptStep,
   Scripts,
 } from './types';
 
@@ -46,9 +46,16 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   function formatIcon(icon: string | undefined): string {
-    if (!icon) return '';
+    if (!icon) {
+      return '';
+    }
+
     const trimmed = icon.trim();
-    if (!trimmed) return '';
+
+    if (!trimmed) {
+      return '';
+    }
+
     return trimmed.startsWith('$(') ? trimmed : `$(${trimmed})`;
   }
 
@@ -85,7 +92,10 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   async function getScriptButtonsFile(): Promise<ScriptButtonsConfig | null> {
-    if (!cwd) return null;
+    if (!cwd) {
+      return null;
+    }
+
     const candidates = [`${cwd}/script-buttons.json`, `${cwd}/.vscode/script-buttons.json`];
 
     for (const path of candidates) {
@@ -99,7 +109,10 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   function normalizeFileShape(raw: unknown): ScriptButtonsConfig {
-    if (!raw || typeof raw !== 'object') return {};
+    if (!raw || typeof raw !== 'object') {
+      return {};
+    }
+
     const obj = raw as Record<string, unknown>;
 
     const newShapeKeys = ['sources', 'filter', 'scripts', 'showNpmInstall'];
@@ -203,9 +216,11 @@ export function activate(context: vscode.ExtensionContext) {
     icon?: string,
   ) {
     const vscCommand = createVscCommand(command, label, isNpm);
-    const color = isNpm ? 'white' : undefined;
+
     const tooltip = typeof command === 'string' ? command : `${command.length} steps`;
+    const color = isNpm ? 'white' : undefined;
     const iconPrefix = formatIcon(icon);
+
     const text = iconPrefix ? `${iconPrefix}  ${label}` : label;
 
     createStatusBarItem(text, tooltip, vscCommand, color);
@@ -233,6 +248,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         terminal.show(true);
         terminal.sendText(command);
+
         return;
       }
 
@@ -273,6 +289,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (config.sources !== 'package') {
       const seenLabels = new Set<string>();
+
       for (const entry of config.scripts) {
         if (!entry?.label || !entry?.script) continue;
         if (seenLabels.has(entry.label)) continue;
@@ -280,6 +297,7 @@ export function activate(context: vscode.ExtensionContext) {
         const isArrayForm = Array.isArray(entry.script);
         if (isArrayForm) {
           const validation = validateSteps(entry.script as ScriptStep[]);
+
           if (!validation.ok) {
             output.appendLine(`[${entry.label}] skipped: ${validation.reason}`);
             continue;
@@ -318,6 +336,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     },
   );
+
   context.subscriptions.push(configChangeDisposable);
 
   init();
