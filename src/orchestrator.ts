@@ -31,13 +31,16 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
   }
 
   const seenIds = new Set<string>();
+
   // Basic validation and ID collection
   for (let i = 0; i < scriptSteps.length; i++) {
     const s = scriptSteps[i];
+
     // Step is not an object or is null
     if (!s || typeof s !== 'object') {
       return { ok: false, reason: `step ${i} is not an object` };
     }
+
     // Missing/invalid step type
     if (s.type !== 'shell' && s.type !== 'vscode') {
       return {
@@ -82,12 +85,14 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
             reason: `step ${stepLabel(s, i)} has invalid reliesOnPort entry (not an object)`,
           };
         }
+
         if (typeof entry.id !== 'string' || entry.id.length === 0) {
           return {
             ok: false,
             reason: `step ${stepLabel(s, i)} has reliesOnPort entry with missing/invalid id`,
           };
         }
+
         if (
           typeof entry.port !== 'number' ||
           !Number.isInteger(entry.port) ||
@@ -125,7 +130,10 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
   const idToIndex = new Map<string, number>();
   for (let i = 0; i < scriptSteps.length; i++) {
     const id = scriptSteps[i].id;
-    if (id) idToIndex.set(id, i);
+
+    if (id) {
+      idToIndex.set(id, i);
+    }
   }
 
   const reliesOnIndices: number[][] = scriptSteps.map((s) => {
@@ -136,13 +144,21 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
 
   const executeAfterIndices: number[][] = scriptSteps.map((s) => {
     return asArray(s.executeAfter).map((id) => {
-      return idToIndex.has(id) ? (idToIndex.get(id) as number) : -1;
+      if (idToIndex.has(id)) {
+        return idToIndex.get(id) as number;
+      }
+
+      return -1;
     });
   });
 
   const reliesOnPortIndices: number[][] = scriptSteps.map((s) => {
     return (s.reliesOnPort ?? []).map((entry) => {
-      return idToIndex.has(entry.id) ? (idToIndex.get(entry.id) as number) : -1;
+      if (idToIndex.has(entry.id)) {
+        return idToIndex.get(entry.id) as number;
+      }
+
+      return -1;
     });
   });
 
@@ -150,40 +166,48 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
     for (const d of reliesOnIndices[i]) {
       if (d === -1) {
         const missing = asArray(scriptSteps[i].reliesOn).find((id) => !idToIndex.has(id));
+
         return {
-          ok: false,
           reason: `step ${stepLabel(scriptSteps[i], i)} reliesOn unknown id "${missing}"`,
+          ok: false,
         };
       }
+
       if (d === i) {
         return { ok: false, reason: `step ${stepLabel(scriptSteps[i], i)} reliesOn itself` };
       }
     }
+
     for (const d of executeAfterIndices[i]) {
       if (d === -1) {
         const missing = asArray(scriptSteps[i].executeAfter).find((id) => !idToIndex.has(id));
+
         return {
-          ok: false,
           reason: `step ${stepLabel(scriptSteps[i], i)} executeAfter unknown id "${missing}"`,
+          ok: false,
         };
       }
+
       if (d === i) {
         return { ok: false, reason: `step ${stepLabel(scriptSteps[i], i)} executeAfter itself` };
       }
     }
+
     for (let j = 0; j < reliesOnPortIndices[i].length; j++) {
-      const d = reliesOnPortIndices[i][j];
       const entry = (scriptSteps[i].reliesOnPort ?? [])[j];
+      const d = reliesOnPortIndices[i][j];
+
       if (d === -1) {
         return {
-          ok: false,
           reason: `step ${stepLabel(scriptSteps[i], i)} reliesOnPort references unknown id "${entry.id}"`,
+          ok: false,
         };
       }
+
       if (d === i) {
         return {
-          ok: false,
           reason: `step ${stepLabel(scriptSteps[i], i)} reliesOnPort references itself`,
+          ok: false,
         };
       }
     }
@@ -199,16 +223,20 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
     return [...set];
   });
 
-  const inDegree = allDeps.map((d) => d.length);
   const dependents: number[][] = scriptSteps.map(() => []);
+  const inDegree = allDeps.map((d) => d.length);
 
   for (let i = 0; i < scriptSteps.length; i++) {
-    for (const d of allDeps[i]) dependents[d].push(i);
+    for (const d of allDeps[i]) {
+      dependents[d].push(i);
+    }
   }
 
   const queue: number[] = [];
   for (let i = 0; i < scriptSteps.length; i++) {
-    if (inDegree[i] === 0) queue.push(i);
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
   }
 
   let processed = 0;
@@ -218,7 +246,9 @@ export function validateSteps(scriptSteps: ScriptStep[]): ValidationResult {
 
     for (const d of dependents[i]) {
       inDegree[d]--;
-      if (inDegree[d] === 0) queue.push(d);
+      if (inDegree[d] === 0) {
+        queue.push(d);
+      }
     }
   }
 
@@ -271,13 +301,20 @@ function probePort(port: number, host: string, connectTimeoutMs = 500): Promise<
   });
 }
 
-async function waitForPort(
-  port: number,
-  host: string,
-  depDone: Promise<void>,
-  timeoutMs: number | undefined,
+type WaitForPortParams = {
+  timeoutMs: number | undefined;
+  depDone: Promise<void>;
+  intervalMs?: number;
+  host: string;
+  port: number;
+};
+async function waitForPort({
   intervalMs = 250,
-): Promise<boolean> {
+  timeoutMs,
+  depDone,
+  port,
+  host,
+}: WaitForPortParams): Promise<boolean> {
   let depFinished = false;
   depDone.then(
     () => {
@@ -292,6 +329,7 @@ async function waitForPort(
 
   while (true) {
     const portActive = await probePort(port, host);
+
     if (portActive) {
       return true;
     }
@@ -353,9 +391,11 @@ export async function runSteps(
   for (let i = 0; i < steps.length; i++) {
     const index = i;
     const step = steps[index];
+
     const reliesOnDeps = asArray(step.reliesOn).map((id) => {
       return idToIndex.get(id) as number;
     });
+
     const executeAfterDeps = asArray(step.executeAfter).map((id) => {
       return idToIndex.get(id) as number;
     });
@@ -375,6 +415,7 @@ export async function runSteps(
           return stepPromises[d];
         }),
       );
+
       await Promise.all(
         executeAfterDeps.map((d) => {
           return startedPromises[d];
@@ -408,12 +449,19 @@ export async function runSteps(
               `[${label}] ${stepLabel(step, index)} waiting for ${pd.host}:${pd.port}`,
             );
 
-            return waitForPort(pd.port, pd.host, stepPromises[pd.depIndex], pd.timeoutMs);
+            return waitForPort({
+              depDone: stepPromises[pd.depIndex],
+              timeoutMs: pd.timeoutMs,
+              host: pd.host,
+              port: pd.port,
+            });
           }),
         );
+
         if (portResults.some((ok) => !ok)) {
           states[index] = 'skipped';
           startedDeferreds[index].resolve();
+
           deps.output.appendLine(
             `[${label}] ${stepLabel(step, index)} skipped (port dependency not satisfied)`,
           );
@@ -465,7 +513,10 @@ export async function runSteps(
       `Script Buttons "${label}" finished with ${failedCount} failed, ${skippedCount} skipped`,
       'Show Output',
     );
-    if (choice === 'Show Output') deps.output.show();
+
+    if (choice === 'Show Output') {
+      deps.output.show();
+    }
   }
 }
 
@@ -507,6 +558,7 @@ function runShellStep(
     let started = false;
     const fireStarted = () => {
       if (started) return;
+
       started = true;
       onStarted();
     };

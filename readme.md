@@ -12,7 +12,7 @@ When a package.json file is detected in the current workspace folder a button is
 
 ![scripts](images/scripts.png)
 
-Scripts can also be loaded in from a script-buttons.json file (placed at the workspace root or inside the .vscode folder). Npm scripts will be white whereas non-npm scripts will be grey.
+Scripts can also be loaded in from a `script-buttons.json` or `script-buttons.jsonc` file (placed at the workspace root or inside the `.vscode` folder). Npm scripts will be white whereas non-npm scripts will be grey.
 
 ![scripts](images/script-buttons.json.png)
 
@@ -27,7 +27,7 @@ When no scripts can be found a warning message will be displayed.
 Script Buttons can be configured from two places:
 
 1. **VSCode settings** (`scriptButtons.*` keys in user or workspace `settings.json`) — defines defaults that apply across projects.
-2. **A `script-buttons.json` file** at the workspace root or inside `.vscode/` — overrides settings on a per-project basis.
+2. **A `script-buttons.json` (or `script-buttons.jsonc`) file** at the workspace root or inside `.vscode/` — overrides settings on a per-project basis. JSONC is also accepted (comments + trailing commas).
 
 When both are present, the project file wins per-field. The `scripts` arrays from both sources are concatenated; if two entries share the same `label`, the project file entry is used.
 
@@ -85,9 +85,13 @@ The original flat-dict shape for `script-buttons.json` is still supported — no
 
 The shape is auto-detected: if any of `sources`, `filter`, `scripts`, or `showNpmInstall` keys are present, the file is read as a config object; otherwise it is treated as a legacy `name → command` dict.
 
+### JSONC support
+
+Config files may use the `.jsonc` extension and freely include `// line` and `/* block */` comments plus trailing commas. The parser also tolerates comments and trailing commas inside `script-buttons.json` itself, so you can switch on JSONC features without renaming. Search order is `script-buttons.json` → `script-buttons.jsonc` → `.vscode/script-buttons.json` → `.vscode/script-buttons.jsonc`; the first one that parses cleanly wins.
+
 ## JSON Schema
 
-The extension ships a JSON Schema for `script-buttons.json` and registers it via `contributes.jsonValidation`, so VSCode applies autocomplete and validation to any `script-buttons.json` (workspace root or `.vscode/`) automatically — no `$schema` field required.
+The extension ships a JSON Schema for `script-buttons.json` / `script-buttons.jsonc` and registers it via `contributes.jsonValidation`, so VSCode applies autocomplete and validation to any `script-buttons.json` or `script-buttons.jsonc` (workspace root or `.vscode/`) automatically — no `$schema` field required.
 
 If you want validation in editors other than VSCode, the schema is also published at:
 
@@ -201,6 +205,10 @@ It still runs in a regular terminal with the original "dispose-and-recreate" beh
 There are currently no known issues.
 
 ## Release Notes
+
+### 1.9.0
+
+- `script-buttons.json` is now parsed as **JSONC**: line/block comments and trailing commas are allowed. A new `script-buttons.jsonc` filename is also recognised at the workspace root and inside `.vscode/`. Schema validation applies to both extensions. No migration needed.
 
 ### 1.6.0
 

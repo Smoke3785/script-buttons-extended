@@ -1,5 +1,6 @@
 // Dependencies
 import { promises as fsPromises } from 'fs';
+import { parse as parseJsonc, printParseErrorCode } from 'jsonc-parser';
 import { workspace } from 'vscode';
 import vscode from 'vscode';
 
@@ -7,6 +8,7 @@ import vscode from 'vscode';
 import { runSteps, validateSteps } from './orchestrator';
 
 // Types
+import type { ParseError } from 'jsonc-parser';
 import type {
   ScriptButtonsConfig,
   ScriptButtonsFilter,
@@ -82,7 +84,19 @@ export function activate(context: vscode.ExtensionContext) {
 
   async function getJsonFile<T>(path: string) {
     const fileBuffer = await readFile(path);
-    const data = JSON.parse(fileBuffer.toString()) as T;
+    const errors: ParseError[] = [];
+    const data = parseJsonc(fileBuffer.toString(), errors, {
+      allowEmptyContent: false,
+      allowTrailingComma: true,
+      disallowComments: false,
+    }) as T;
+
+    if (errors.length > 0) {
+      const first = errors[0];
+      throw new Error(
+        `Failed to parse ${path}: ${printParseErrorCode(first.error)} at offset ${first.offset}`,
+      );
+    }
 
     return data;
   }
@@ -96,7 +110,12 @@ export function activate(context: vscode.ExtensionContext) {
       return null;
     }
 
-    const candidates = [`${cwd}/script-buttons.json`, `${cwd}/.vscode/script-buttons.json`];
+    const candidates = [
+      `${cwd}/.vscode/script-buttons.jsonc`,
+      `${cwd}/.vscode/script-buttons.json`,
+      `${cwd}/script-buttons.jsonc`,
+      `${cwd}/script-buttons.json`,
+    ];
 
     for (const path of candidates) {
       try {
