@@ -7,7 +7,7 @@
     "url": "https://github.com/Smoke3785/script-buttons-extended.git"
   },
   "description": "Maintained fork of Script Buttons. Adds configurable sources, whitelist/blacklist filtering, custom labelled buttons, and VSCode settings support.",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "engines": {
     "vscode": "^1.63.0"
   },
